@@ -1,0 +1,17 @@
+name: issue-linker
+version: 0.1.0
+
+authors:
+  - Bar Hofesh <bar.hofesh@gmail.com>
+
+targets:
+  issue-linker:
+    main: src/issue-linker.cr
+
+dependencies:
+  tallboy:
+    github: epoch/tallboy
+
+crystal: 1.8.1
+
+license: MIT
