@@ -11,7 +11,7 @@ This is a tool to link issues between Snyk Code SAST and BrightSec DAST.
 
 ## Usage
 
-1. `./bin/issue-linker --help` to see the help menu
+`issue-linker --help` to see the help menu
 
 ```bash
 Usage: issue-linker [arguments]
