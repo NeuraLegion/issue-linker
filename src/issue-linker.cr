@@ -16,9 +16,10 @@ module Issue::Linker
     @bright_token : String
     @bright_scan : String
     @output : String
+    @update : Bool
     @all_links : Hash(SnykIssue, BrightIssue) = Hash(SnykIssue, BrightIssue).new
 
-    def initialize(@snyk_token, @snyk_org, @snyk_project, @bright_token, @bright_scan, @output)
+    def initialize(@snyk_token, @snyk_org, @snyk_project, @bright_token, @bright_scan, @output, @update)
     end
 
     # Link Snyk issues to Bright issues
@@ -38,6 +39,10 @@ module Issue::Linker
           end
         end
       end
+
+      if @update
+        update
+      end
     end
 
     def draw
@@ -46,6 +51,38 @@ module Issue::Linker
         output_json
       when "markdown", "ascii"
         draw_table
+      end
+    end
+
+    def update
+      headers = HTTP::Headers{
+        "Authorization" => "Api-Key #{@bright_token}",
+        "Content-Type"  => "application/json",
+        "Accept"        => "application/json",
+      }
+      comments_url = "https://app.brightsec.com/api/v1/comments"
+
+      @all_links.each do |link|
+        resp = HTTP::Client.post(
+          comments_url,
+          headers: headers,
+          body: {
+            includedInReport: true,
+            scanId:           @bright_scan,
+            issueId:          link[1].id,
+            body:             <<-EOF
+              ![snyk-logo](https://res.cloudinary.com/snyk/image/upload/w_100,h_100/v1537345891/press-kit/brand/avatar-transparent.png)
+
+              • This issue is linked to [Snyk issue ##{link[0].id}](#{snyk_issue_url(link[0])})
+              EOF
+          }.to_json,
+        )
+
+        unless resp.status.success?
+          STDERR.puts "ERROR: Failed to update Bright issue #{link[1].id}"
+          STDERR.puts resp.body.to_s
+          exit(1)
+        end
       end
     end
 
@@ -203,7 +240,7 @@ parser = OptionParser.parse do |parser|
   parser.on("--bright-token TOKEN", "Api-Key for the Bright platform") { |token| options["bright_token"] = token }
   parser.on("--bright-scan SCAN", "Bright scan ID") { |scan| options["bright_scan"] = scan }
   parser.on("--output TYPE", "Type of Output, default: json. [json,markdown,ascii] (Optional)") { |output| options["output"] = output }
-
+  parser.on("--update", "Update Bright issues with Snyk issue links") { |update| options["update"] = "true" }
   parser.on("-h", "--help", "Show this help") do
     puts parser
     exit
@@ -249,7 +286,8 @@ runner = Issue::Linker::Run.new(
   snyk_project: options["snyk_project"],
   bright_token: options["bright_token"],
   bright_scan: options["bright_scan"],
-  output: options["output"]? || "json"
+  output: options["output"]? || "json",
+  update: options["update"]? ? true : false,
 )
 
 runner.link
