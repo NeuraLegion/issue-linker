@@ -4,10 +4,19 @@ This is a tool to link issues between Snyk Code SAST and BrightSec DAST.
 
 ## Installation
 
+### From Source
+
 1. [Install Crystal](https://crystal-lang.org/docs/installation/)
 2. `git clone` this repo
 3. `cd` into the repo
 4. `shards build`
+
+### From Releases
+
+1. Download the latest release from the [releases page](https://github.com/NeuraLegion/issue-linker/releases)
+2. Look for the binary for your OS and architecture
+3. Download it to your working directory
+4. execute with `./issue-linker`. You may need to `chmod +x` the binary first.
 
 ## Usage
 
