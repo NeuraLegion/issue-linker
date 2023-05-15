@@ -7,7 +7,7 @@ require "./snyk_issue.cr"
 require "./bright_issue.cr"
 
 module Issue::Linker
-  VERSION = "0.1.0"
+  VERSION = "0.2.0"
 
   class Run
     @snyk_token : String
@@ -15,6 +15,7 @@ module Issue::Linker
     @snyk_project : String
     @bright_token : String
     @bright_scan : String
+    @bright_cluster : String = ENV["BRIGHT_CLUSTER"]? || "app.brightsec.com"
     @output : String
     @update : Bool
     @all_links : Hash(SnykIssue, BrightIssue) = Hash(SnykIssue, BrightIssue).new
@@ -60,7 +61,7 @@ module Issue::Linker
         "Content-Type"  => "application/json",
         "Accept"        => "application/json",
       }
-      comments_url = "https://app.brightsec.com/api/v1/comments"
+      comments_url = "https://#{@bright_cluster}/api/v1/comments"
 
       @all_links.each do |link|
         resp = HTTP::Client.post(
@@ -145,7 +146,7 @@ module Issue::Linker
     end
 
     private def bright_issue_url(issue : BrightIssue) : String
-      "https://app.brightsec.com/scans/#{@bright_scan}/issues/#{issue.id}"
+      "https://#{@bright_cluster}/scans/#{@bright_scan}/issues/#{issue.id}"
     end
 
     # translate snyk org id to org name
@@ -208,7 +209,7 @@ module Issue::Linker
         "Accept"        => "application/json",
       }
 
-      bright_url = "https://app.brightsec.com/api/v1/scans/#{@bright_scan}/issues"
+      bright_url = "https://#{@bright_cluster}/api/v1/scans/#{@bright_scan}/issues"
 
       resp = HTTP::Client.get(
         bright_url,
