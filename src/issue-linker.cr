@@ -7,7 +7,7 @@ require "./snyk_issue.cr"
 require "./bright_issue.cr"
 
 module Issue::Linker
-  VERSION = "0.2.0"
+  VERSION = "0.3.0"
 
   class Run
     @snyk_token : String
@@ -19,6 +19,7 @@ module Issue::Linker
     @output : String
     @update : Bool
     @all_links : Hash(SnykIssue, BrightIssue) = Hash(SnykIssue, BrightIssue).new
+    @bright_only_findings : Array(BrightIssue) = Array(BrightIssue).new
 
     def initialize(@snyk_token, @snyk_org, @snyk_project, @bright_token, @bright_scan, @output, @update)
     end
@@ -39,6 +40,11 @@ module Issue::Linker
             already_linked_ids << snyk_issue.id
           end
         end
+      end
+
+      bright_issues.each do |bright_issue|
+        next if already_linked_ids.includes?(bright_issue.id)
+        @bright_only_findings << bright_issue
       end
 
       if @update
@@ -119,16 +125,25 @@ module Issue::Linker
         header [
           "Issue name",
           "CWE",
-          "Snyk issue URL",
-          "Bright issue URL",
+          "Snyk Unique ID",
+          "Bright Unique ID",
         ]
 
         @all_links.each do |link|
           row [
             link[0].attributes.title,
             link[0].attributes.cwe.first,
-            "[Snyk Issue URL](#{snyk_issue_url(link[0])})",
-            "[Bright Issue URL](#{bright_issue_url(link[1])})",
+            "[ID##{link[0].id[0..4]}](#{snyk_issue_url(link[0])})",
+            "[ID##{link[1].id[0..4]}](#{bright_issue_url(link[1])})",
+          ]
+        end
+
+        @bright_only_findings.each do |issue|
+          row [
+            issue.name,
+            issue.cwe,
+            "N/A",
+            "[ID##{issue.id[0..4]}](#{bright_issue_url(issue)})",
           ]
         end
       end

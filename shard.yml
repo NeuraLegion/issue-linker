@@ -1,5 +1,5 @@
 name: issue-linker
-version: 0.2.0
+version: 0.3.0
 
 authors:
   - Bar Hofesh <bar.hofesh@gmail.com>
@@ -12,6 +12,6 @@ dependencies:
   tallboy:
     github: epoch/tallboy
 
-crystal: 1.8.1
+crystal: 1.8.2
 
 license: MIT
