@@ -11,6 +11,8 @@ targets:
 dependencies:
   tallboy:
     github: epoch/tallboy
+  sec_tester:
+    github: NeuraLegion/sec-tester-cr
 
 crystal: 1.8.2
 

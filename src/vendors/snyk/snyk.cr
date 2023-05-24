@@ -6,14 +6,33 @@ module Issue::Linker
     @snyk_org : String
     @snyk_project : String
     @bright_token : String
-    @bright_scan : String
+    @bright_scan : String?
     @bright_cluster : String = ENV["BRIGHT_CLUSTER"]? || "app.brightsec.com"
     @output : String
     @update : Bool
     @all_links : Hash(SnykIssue, BrightIssue) = Hash(SnykIssue, BrightIssue).new
     @bright_only_findings : Array(BrightIssue) = Array(BrightIssue).new
 
-    def initialize(@snyk_token, @snyk_org, @snyk_project, @bright_token, @bright_scan, @output, @update)
+    def initialize(@snyk_token, @snyk_org, @snyk_project, @bright_token, @bright_scan = nil, @output = "json", @update = false)
+    end
+
+    # Run a verification scan based on the Snyk project findings
+    # This will start a scan on Bright, the tests to run will be based on the Snyk findings
+    def verification_scan(target : String)
+      # validate target
+      verified_target = SecTester::Target.new(target)
+      snyk_issues = get_snyk_issues
+      # translate snyk issues to bright tests
+      bright_tests = generate_test_array(snyk_issues)
+
+      # create a new scan
+      scan_id = start_bright_scan(target_url: verified_target.url, tests: bright_tests)
+      case @output
+      when "json"
+        print "{\"scan_id\": \"#{scan_id}\"}"
+      when "markdown", "ascii"
+        puts "Scan ID: #{scan_id}"
+      end
     end
 
     # Link Snyk issues to Bright issues
@@ -147,6 +166,87 @@ module Issue::Linker
       end
     end
 
+    # Start a new scan on Bright
+    private def start_bright_scan(tests : Array(String), target_url : String)
+      headers = HTTP::Headers{
+        "Authorization" => "Api-Key #{@bright_token}",
+        "Content-Type"  => "application/json",
+        "Accept"        => "application/json",
+      }
+
+      bright_url = "https://#{@bright_cluster}/api/v1/scans"
+
+      body = {
+        "name":                 "Snyk Verification Scan for project #{@snyk_project}",
+        "module":               "dast",
+        "tests":                tests,
+        "fileId":               nil,
+        "attackParamLocations": ["query", "body", "fragment"],
+        "discoveryTypes":       ["crawler"],
+        "crawlerUrls":          [target_url],
+        "smart":                true,
+        "skipStaticParams":     true,
+        "projectId":            get_bright_first_project_id,
+        "slowEpTimeout":        nil,
+        "targetTimeout":        nil,
+        "authObjectId":         nil,
+        "templateId":           nil,
+        "info":                 {
+          "source": "utlib",
+          "client": {
+            "name":    "issue_linker",
+            "version": Issue::Linker::VERSION,
+          },
+          "provider": "unkown",
+        },
+      }.to_json
+
+      resp = HTTP::Client.post(
+        bright_url,
+        headers: headers,
+        body: body
+      )
+
+      unless resp.status.success?
+        STDERR.puts "ERROR: Failed to start Bright scan"
+        STDERR.puts resp.body.to_s
+        exit(1)
+      end
+
+      JSON.parse(resp.body.to_s)["id"].to_s
+    rescue e : JSON::ParseException
+      STDERR.puts "ERROR: Failed to parse Bright response"
+      STDERR.puts resp.try &.body.to_s
+      exit(1)
+    end
+
+    private def get_bright_first_project_id : String
+      headers = HTTP::Headers{
+        "Authorization" => "Api-Key #{@bright_token}",
+        "Content-Type"  => "application/json",
+        "Accept"        => "application/json",
+      }
+
+      bright_url = "https://#{@bright_cluster}/api/v1/projects"
+
+      resp = HTTP::Client.get(
+        bright_url,
+        headers: headers,
+      )
+
+      unless resp.status.success?
+        STDERR.puts "ERROR: Failed to get Bright project id"
+        STDERR.puts resp.body.to_s
+        exit(1)
+      end
+
+      JSON.parse(resp.body.to_s).as_a.first["id"].to_s
+    rescue e : JSON::ParseException
+      STDERR.puts "ERROR: Failed to parse Bright response"
+      STDERR.puts resp.try &.body.to_s
+      exit(1)
+    end
+
     private def snyk_issue_url(issue : SnykIssue) : String
       org_name = snyk_org_name(@snyk_org)
       "https://app.snyk.io/org/#{org_name}/project/#{@snyk_project}#issue-#{issue.id}"
@@ -234,6 +334,21 @@ module Issue::Linker
       STDERR.puts "ERROR: Failed to parse Bright response"
       STDERR.puts resp.try &.body.to_s
       exit(1)
+    end
+
+    # A method to map snyk issues to bright tests
+    private def generate_test_array(snyk_issues : Array(SnykIssue)) : Array(String)
+      tests = Array(String).new
+      snyk_issues.each do |issue|
+        issue.attributes.title.split(" ").each do |word|
+          SecTester::SUPPORTED_TESTS.each do |test|
+            if test.includes?(word.downcase)
+              tests << test
+            end
+          end
+        end
+      end
+      tests.uniq
     end
   end
 end
