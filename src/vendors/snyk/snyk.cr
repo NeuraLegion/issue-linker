@@ -89,9 +89,12 @@ module Issue::Linker
             scanId:           @bright_scan,
             issueId:          link[1].id,
             body:             <<-EOF
-              ![snyk-logo](https://res.cloudinary.com/snyk/image/upload/w_100,h_100/v1537345891/press-kit/brand/avatar-transparent.png)
-
-              • This issue is linked to [Snyk issue ##{link[0].id}](#{snyk_issue_url(link[0])})
+              ## SAST Issue Correlation
+              • Source Code File: #{link[0].attributes.primary_file_path}:#{link[0].attributes.primary_region.start_line}:#{link[0].attributes.primary_region.start_column}
+              <br>
+              • This issue is linked to [Snyk issue #{link[0].id}](#{snyk_issue_url(link[0])})
+              <br>
+              ![snyk-logo](https://res.cloudinary.com/snyk/image/upload/w_80,h_80/v1537345891/press-kit/brand/avatar-transparent.png)
               EOF
           }.to_json,
         )
@@ -275,22 +278,46 @@ module Issue::Linker
 
       JSON.parse(resp.body.to_s)["data"].as_a.each do |org|
         if org["id"] == id
-          return org["attributes"]["name"].as_s
+          return URI.encode_path(org["attributes"]["name"].as_s)
         end
       end
 
       raise "Failed to find Snyk org name based on given org id"
     end
 
-    # Get Snyk issues
-    private def get_snyk_issues : Array(SnykIssue)
-      snyk_url = "https://api.snyk.io/rest/orgs/#{@snyk_org}/code_issue_summaries?project_id=#{@snyk_project}&version=2023-03-21~experimental&limit=100"
+    # Get specific snyk issue by id
+    private def get_snyk_issue_by_id(id : String) : SnykIssue
+      url = "https://api.snyk.io/rest/orgs/#{@snyk_org}/code_issue_details/#{id}?project_id=#{@snyk_project}&version=2023-03-21~experimental"
       headers = HTTP::Headers{
         "Accept"        => "application/vnd.api+json",
         "authorization" => "#{@snyk_token}",
       }
       resp = HTTP::Client.get(
-        snyk_url,
+        url,
+        headers: headers
+      )
+
+      unless resp.status.success?
+        STDERR.puts "ERROR: Failed to get Snyk issues"
+        STDERR.puts resp.body.to_s
+        exit(1)
+      end
+      SnykIssue.from_json(JSON.parse(resp.body.to_s)["data"].to_json)
+    rescue e : JSON::ParseException
+      STDERR.puts "ERROR: Failed to parse Snyk response (get_snyk_issue_by_id): #{e.message}"
+      STDERR.puts resp.try &.body.to_s
+      exit(1)
+    end
+
+    # Get Snyk issues
+    private def get_snyk_issues : Array(SnykIssue)
+      snyk_all_issues_url = "https://api.snyk.io/rest/orgs/#{@snyk_org}/code_issue_summaries?project_id=#{@snyk_project}&version=2023-03-21~experimental&limit=100"
+      headers = HTTP::Headers{
+        "Accept"        => "application/vnd.api+json",
+        "authorization" => "#{@snyk_token}",
+      }
+      resp = HTTP::Client.get(
+        snyk_all_issues_url,
         headers: headers
       )
 
@@ -300,10 +327,17 @@ module Issue::Linker
         exit(1)
       end
 
-      resp_json = JSON.parse(resp.body.to_s)
-      Array(SnykIssue).from_json(resp_json["data"].to_json)
+      resp_json_all_issues = JSON.parse(resp.body.to_s)
+
+      # Itirate through all issues and get full details
+      snyk_issues = Array(SnykIssue).new
+      resp_json_all_issues["data"].as_a.each do |partial_issue|
+        snyk_issues << get_snyk_issue_by_id(partial_issue["id"].as_s)
+      end
+
+      snyk_issues
     rescue e : JSON::ParseException
-      STDERR.puts "ERROR: Failed to parse Snyk response"
+      STDERR.puts "ERROR: Failed to parse Snyk response (get_snyk_issues): #{e.message}}"
       STDERR.puts resp.try &.body.to_s
       exit(1)
     end
