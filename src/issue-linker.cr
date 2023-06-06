@@ -8,7 +8,7 @@ require "./vendors//snyk/snyk.cr"
 require "./bright_issue.cr"
 
 module Issue::Linker
-  VERSION = "0.4.0"
+  VERSION = "0.5.0"
 end
 
 options = Hash(String, String).new
