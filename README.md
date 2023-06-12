@@ -1,6 +1,7 @@
 # issue-linker
 
-This is a tool to link issues between Snyk Code SAST and BrightSec DAST.
+This is a tool to link issues between SAST vendors and BrightSec DAST.
+It also allows to run validation scan based on the SAS scan results.
 
 ## Installation
 
@@ -22,15 +23,34 @@ This is a tool to link issues between Snyk Code SAST and BrightSec DAST.
 
 `issue-linker --help` to see the help menu
 
+The tool has different options based on the relevant vendor, for Snyk you can use the following options:
+
+`issue-linker Snyk --help`
+
+This will show the help menu for the Snyk vendor.
+
 ```bash
-Usage: issue-linker [arguments]
+Usage: issue-linker [subcommand] [arguments]
+    -h, --help                       Show this help
+    Link-Issues                      Link Snyk and Bright issues
+    Verification-Scan                Run a verification scan based on Snyk Code findings
+```
+
+### Link-Issues
+
+This command will link issues between Snyk and BrightSec.
+
+```bash
+Usage: issue-linker [subcommand] [arguments]
+    -h, --help                       Show this help
     --snyk-token TOKEN               Api-Key for the snyk platform
     --snyk-org ORG                   Snyk org UUID
     --snyk-project PROJECT           Snyk project UUID
     --bright-token TOKEN             Api-Key for the Bright platform
     --bright-scan SCAN               Bright scan ID
     --output TYPE                    Type of Output, default: json. [json,markdown,ascii] (Optional)
-    -h, --help                       Show this help
+    --update                         Update Bright issues with Snyk issue links
+
 ```
 
 An Example of the possible markdown output:
