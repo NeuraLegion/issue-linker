@@ -6,7 +6,7 @@ shards:
 
   csuuid:
     git: https://github.com/wyhaines/csuuid.cr.git
-    version: 1.0.0+git.commit.812ee5e1252b27ee2895ec7897094cde3e4a5dc2
+    version: 1.0.0+git.commit.41710010d5b8be818b1ca7b84ef412348e1912bd
 
   db:
     git: https://github.com/crystal-lang/crystal-db.git
@@ -54,7 +54,7 @@ shards:
 
   sec_tester:
     git: https://github.com/neuralegion/sec-tester-cr.git
-    version: 1.5.3
+    version: 1.5.4
 
   splay_tree_map:
     git: https://github.com/wyhaines/splay_tree_map.cr.git
