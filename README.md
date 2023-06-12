@@ -95,6 +95,20 @@ Or as JSON for automation purpose:
 Using the `--update` option will allow to update Bright Issues with the relevant vendor input
 ![image](https://github.com/NeuraLegion/issue-linker/assets/1631073/813b9f72-6235-4045-85d9-4eb0581e3d96)
 
+### Verification-Scan
+
+This command will allow you to run a verification scan based on a SAST scan that was previously run.
+
+```bash
+Usage: issue-linker [subcommand] [arguments]
+    -h, --help                       Show this help
+    --snyk-token TOKEN               Api-Key for the snyk platform
+    --snyk-org ORG                   Snyk org UUID
+    --snyk-project PROJECT           Snyk project UUID
+    --bright-token TOKEN             Api-Key for the Bright platform
+    -t TARGET, --target TARGET       Target to scan by bright DAST
+    --output TYPE                    Type of Output, default: json. [json,markdown,ascii] (Optional)
+```
 
 ## Contributing
 
