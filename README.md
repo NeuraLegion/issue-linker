@@ -110,8 +110,7 @@ Usage: issue-linker [subcommand] [arguments]
     --output TYPE                    Type of Output, default: json. [json,markdown,ascii] (Optional)
 ```
 
-**Note**
-Target option (-t) should be provided in the following format: `https://www.example.com`.
+**Note**: Target option (-t) should be provided in the following format: `https://www.example.com`.
 
 ## Contributing
 
