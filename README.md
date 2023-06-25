@@ -19,6 +19,20 @@ It also allows to run validation scan based on the SAS scan results.
 3. Download it to your working directory
 4. execute with `./issue-linker`. You may need to `chmod +x` the binary first.
 
+### From Docker
+
+#### Docker Build Option
+
+1. `git clone` this repo
+2. `cd` into the repo
+3. `docker build -t issue-linker .`
+4. `docker run -it issue-linker --help`
+
+#### Docker Pull Option
+
+1. `docker pull neuralegion/issue-linker`
+2. `docker run -it neuralegion/issue-linker --help`
+
 ## Usage
 
 `issue-linker --help` to see the help menu
