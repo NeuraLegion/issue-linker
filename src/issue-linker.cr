@@ -6,11 +6,16 @@ require "sec_tester/target"
 require "sec_tester/tests"
 
 require "./vendors//snyk/snyk.cr"
-require "./bright_issue.cr"
+require "./vendors/cx/cx.cr"
+require "./vendors/bright/bright.cr"
+require "./linker.cr"
 
 module Issue::Linker
   VERSION = "0.5.1"
 end
+
+alias VendorIssue = Issue::Linker::CXIssue | Issue::Linker::SnykIssue
+alias Vendor = Issue::Linker::CX | Issue::Linker::Snyk
 
 options = Hash(String, String).new
 vendor = nil
@@ -40,6 +45,30 @@ parser = OptionParser.parse do |parser|
       parser.on("--output TYPE", "Type of Output, default: json. [json,markdown,ascii] (Optional)") { |output| options["output"] = output }
     end
   end
+  parser.on("CX", "Checkmarx") do
+    vendor = "CX"
+    parser.on("Link-Issues", "Link CX and Bright issues") do
+      subcommand = "LinkIssues"
+      parser.on("--cx-token TOKEN", "Api-Key for the Checkmarx platform") { |token| options["cx_token"] = token }
+      parser.on("--cx-scan SCAN", "Checkmarx scan UUID") { |scan| options["cx_scan"] = scan }
+      parser.on("--cx-mfa", "Use MFA token that needs refreshing") { |mfa| options["mfa"] = "true" }
+      parser.on("--cx-realm REALM", "Checkmarx realm") { |realm| options["realm"] = realm }
+      parser.on("--bright-token TOKEN", "Api-Key for the Bright platform") { |token| options["bright_token"] = token }
+      parser.on("--bright-scan SCAN", "Bright scan ID") { |scan| options["bright_scan"] = scan }
+      parser.on("--output TYPE", "Type of Output, default: json. [json,markdown,ascii] (Optional)") { |output| options["output"] = output }
+      parser.on("--update", "Update Bright issues with Snyk issue links") { |update| options["update"] = "true" }
+    end
+    parser.on("Verification-Scan", "Run a verification scan based on Snyk Code findings") do
+      subcommand = "VerificationScan"
+      parser.on("--cx-token TOKEN", "Api-Key for the Checkmarx platform") { |token| options["cx_token"] = token }
+      parser.on("--cx-scan SCAN", "Checkmarx scan UUID") { |scan| options["scan"] = scan }
+      parser.on("--cx-mfa", "Use MFA token that needs refreshing") { |mfa| options["mfa"] = "true" }
+      parser.on("--cx-realm REALM", "Checkmarx realm") { |realm| options["realm"] = realm }
+      parser.on("--bright-token TOKEN", "Api-Key for the Bright platform") { |token| options["bright_token"] = token }
+      parser.on("-t TARGET", "--target TARGET", "Target to scan by bright DAST") { |target| options["target"] = target }
+      parser.on("--output TYPE", "Type of Output, default: json. [json,markdown,ascii] (Optional)") { |output| options["output"] = output }
+    end
+  end
   parser.on("-h", "--help", "Show this help") do
     puts parser
     exit
@@ -54,6 +83,23 @@ parser = OptionParser.parse do |parser|
     exit(1)
   end
 end
+
+# Bright options validation
+if options["bright_token"]?.nil?
+  STDERR.puts "ERROR: --bright-token is required"
+  STDERR.puts parser
+  exit(1)
+end
+if options["bright_scan"]?.nil?
+  STDERR.puts "ERROR: --bright-scan is required"
+  STDERR.puts parser
+  exit(1)
+end
+
+bright = Issue::Linker::Bright.new(
+  bright_token: options["bright_token"],
+  bright_scan: options["bright_scan"]
+)
 
 case vendor
 when "Snyk"
@@ -73,40 +119,97 @@ when "Snyk"
       STDERR.puts "ERROR: --snyk-project is required"
       STDERR.puts parser
       exit(1)
-    when options["bright_token"]?.nil?
-      STDERR.puts "ERROR: --bright-token is required"
-      STDERR.puts parser
-      exit(1)
-    when options["bright_scan"]?.nil?
-      STDERR.puts "ERROR: --bright-scan is required"
-      STDERR.puts parser
-      exit(1)
     end
 
     snyk = Issue::Linker::Snyk.new(
       snyk_token: options["snyk_token"],
       snyk_org: options["snyk_org"],
-      snyk_project: options["snyk_project"],
-      bright_token: options["bright_token"],
-      bright_scan: options["bright_scan"],
+      snyk_project: options["snyk_project"]
+    )
+
+    linker = Issue::Linker::Link.new(
+      vendor: snyk,
+      bright: bright,
       output: options["output"]? || "json",
       update: options["update"]? ? true : false,
     )
-
-    snyk.link
-    snyk.draw
+    linker.link
+    linker.draw
   when "VerificationScan"
     snyk = Issue::Linker::Snyk.new(
       snyk_token: options["snyk_token"],
       snyk_org: options["snyk_org"],
-      snyk_project: options["snyk_project"],
-      bright_token: options["bright_token"],
-      output: options["output"]? || "json",
+      snyk_project: options["snyk_project"]
     )
-    snyk.verification_scan(options["target"])
+
+    linker = Issue::Linker::Link.new(
+      vendor: snyk,
+      bright: bright,
+      output: options["output"]? || "json",
+      update: options["update"]? ? true : false,
+    )
+    linker.verification_scan(options["target"])
   else
     STDERR.puts "ERROR: #{subcommand} is not a valid subcommand."
     STDERR.puts "You can use `issues-linker Snyk --help` to see available subcommands."
+    STDERR.puts parser
+    exit(1)
+  end
+when "CX"
+  case subcommand
+  when "LinkIssues"
+    # Validate options and ensure required options are provided
+    case options
+    when options["cx_token"]?.nil?
+      STDERR.puts "ERROR: --cx-token is required"
+      STDERR.puts parser
+      exit(1)
+    when options["cx_scan"]?.nil?
+      STDERR.puts "ERROR: --cx-scan is required"
+      STDERR.puts parser
+      exit(1)
+    end
+
+    if options["mfa"]?
+      if options["realm"]?.nil?
+        STDERR.puts "ERROR: --cx-realm is required when using MFA"
+        STDERR.puts parser
+        exit(1)
+      end
+    end
+
+    cx = Issue::Linker::CX.new(
+      token: options["cx_token"],
+      cx_scan: options["cx_scan"],
+      mfa: options["mfa"]? ? true : false,
+      realm: options["realm"]?,
+    )
+
+    linker = Issue::Linker::Link.new(
+      vendor: cx,
+      bright: bright,
+      output: options["output"]? || "json",
+      update: options["update"]? ? true : false,
+    )
+    linker.link
+    linker.draw
+  when "VerificationScan"
+    cx = Issue::Linker::CX.new(
+      token: options["cx_token"],
+      cx_scan: options["cx_scan"],
+      mfa: options["mfa"]? ? true : false,
+      realm: options["realm"]?,
+    )
+    linker = Issue::Linker::Link.new(
+      vendor: cx,
+      bright: bright,
+      output: options["output"]? || "json",
+      update: options["update"]? ? true : false,
+    )
+    linker.verification_scan(options["target"])
+  else
+    STDERR.puts "ERROR: #{subcommand} is not a valid subcommand."
+    STDERR.puts "You can use `issues-linker Checkmarx --help` to see available subcommands."
     STDERR.puts parser
     exit(1)
   end
