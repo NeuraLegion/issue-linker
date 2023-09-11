@@ -107,7 +107,7 @@ Or as JSON for automation purpose:
 ```
 
 Using the `--update` option will allow to update Bright Issues with the relevant vendor input
-![image](https://github.com/NeuraLegion/issue-linker/assets/1631073/813b9f72-6235-4045-85d9-4eb0581e3d96)
+![image](https://github.com/NeuraLegion/issue-linker/assets/1631073/5dcab9d2-d319-4445-994c-1f525d9a5be6)
 
 ### Verification-Scan
 
