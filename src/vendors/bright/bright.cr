@@ -44,7 +44,27 @@ module Issue::Linker
           EOF
         }.to_json,
       )
-
+      if resp.status.too_many_requests?
+        STDERR.puts "ERROR: Too many requests to Bright trying to update issue: #{bright_issue.id}, sleeping for 30 seconds"
+        sleep(30.seconds)
+        resp = HTTP::Client.post(
+          comments_url,
+          headers: headers,
+          body: {
+            includedInReport: true,
+            scanId:           @bright_scan,
+            issueId:          bright_issue.id,
+            body:             <<-EOF
+          ## SAST Issue Correlation
+          • Source Code File: #{source_path}
+          <br>
+          • This issue is linked to #{issue_url}
+          <br>
+          #{vendor_logo}
+          EOF
+          }.to_json,
+        )
+      end
       unless resp.status.success?
         STDERR.puts "ERROR: Failed to update Bright issue #{bright_issue.id}"
         STDERR.puts resp.body.to_s

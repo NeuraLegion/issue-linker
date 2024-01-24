@@ -6,11 +6,11 @@ shards:
 
   csuuid:
     git: https://github.com/wyhaines/csuuid.cr.git
-    version: 1.0.0+git.commit.41710010d5b8be818b1ca7b84ef412348e1912bd
+    version: 1.0.0+git.commit.a4cf9615c6518cf27c68a1755a8c2ac4ae4fe987
 
   db:
     git: https://github.com/crystal-lang/crystal-db.git
-    version: 0.12.0
+    version: 0.13.1
 
   debug:
     git: https://github.com/sija/debug.cr.git
@@ -22,7 +22,7 @@ shards:
 
   har:
     git: https://github.com/neuralegion/har.git
-    version: 1.1.9
+    version: 1.2.0
 
   msgpack:
     git: https://github.com/crystal-community/msgpack-crystal.git
@@ -30,7 +30,7 @@ shards:
 
   nbchannel:
     git: https://github.com/wyhaines/nbchannel.cr.git
-    version: 0.1.0+git.commit.ea6517a837270361695244d14c4b03d84660f113
+    version: 0.1.0+git.commit.a8f5be6aa198abfa9f1893e1156640b8ea526094
 
   opentelemetry-api:
     git: https://github.com/wyhaines/opentelemetry-api.cr.git
@@ -58,7 +58,7 @@ shards:
 
   sec_tester:
     git: https://github.com/neuralegion/sec-tester-cr.git
-    version: 1.6.1
+    version: 1.6.12
 
   socket_io:
     git: https://github.com/neuralegion/socket_io.git

@@ -19,6 +19,8 @@ module Issue::Linker
         link_snyk
       when CX
         link_cx
+      when ShiftLeft
+        link_shiftleft
       end
 
       if @update
@@ -42,6 +44,8 @@ module Issue::Linker
                         "#{vendor_issue.attributes.primary_file_path}:#{vendor_issue.attributes.primary_region.start_line}:#{vendor_issue.attributes.primary_region.start_column}"
                       when CXIssue
                         "#{vendor_issue.nodes.first.file_name}:#{vendor_issue.nodes.first.line}:#{vendor_issue.nodes.first.column}"
+                      when ShiftLeftIssue
+                        "#{vendor_issue.details.file_locations.try &.join(",").rstrip(",") || "N/A"}"
                       else
                         raise "Unknown vendor #{vendor_issue.class}"
                       end
@@ -51,6 +55,8 @@ module Issue::Linker
                       "[Snyk issue #{vendor_issue.id}](#{@vendor.as(Snyk).issue_url(vendor_issue)})"
                     when CXIssue
                       "[Checkmarx issue #{vendor_issue.result_hash}](#{@vendor.as(CX).issue_url(vendor_issue)})"
+                    when ShiftLeftIssue
+                      "[ShiftLeft issue #{vendor_issue.id}](#{@vendor.as(ShiftLeft).issue_url(vendor_issue.id)})"
                     else
                       raise "Unknown vendor #{vendor_issue.class}"
                     end
@@ -60,6 +66,8 @@ module Issue::Linker
                         "![snyk-logo](https://res.cloudinary.com/snyk/image/upload/w_80,h_80/v1537345891/press-kit/brand/avatar-transparent.png)"
                       when CXIssue
                         "![cx-logo](https://checkmarx.com/wp-content/uploads/2021/04/CHeckmarx-Logo-2.png)"
+                      when ShiftLeftIssue
+                        "![shiftleft-logo](https://docs.shiftleft.io/img/sl-logo.svg)"
                       else
                         raise "Unknown vendor #{vendor_issue.class}"
                       end
@@ -109,6 +117,19 @@ module Issue::Linker
               "url"  => @bright.issue_url(v),
             },
           }
+        when ShiftLeftIssue
+          {
+            "#{@vendor.name.downcase}_issue" => {
+              "title" => k.title,
+              "cwe"   => "CWE-#{k.cwe.first}",
+              "url"   => @vendor.as(ShiftLeft).issue_url(k.id),
+            },
+            "bright_issue" => {
+              "name" => v.name,
+              "cwe"  => v.cwe,
+              "url"  => @bright.issue_url(v),
+            },
+          }
         else
           raise "Unknown vendor #{k.class}"
         end
@@ -127,7 +148,7 @@ module Issue::Linker
         header [
           "Issue name",
           "CWE",
-          "Snyk Unique ID",
+          "SAST Unique ID",
           "Bright Unique ID",
         ]
 
@@ -147,6 +168,14 @@ module Issue::Linker
               cx_issue.query_name,
               "CWE-#{cx_issue.cwe_id}",
               "[ID##{cx_issue.result_hash}](#{@vendor.as(CX).issue_url(cx_issue)})",
+              "[ID##{link[1].id[0..4]}](#{@bright.issue_url(link[1])})",
+            ]
+          when ShiftLeftIssue
+            shiftleft_issue = link[0].as(ShiftLeftIssue)
+            row [
+              shiftleft_issue.title,
+              "CWE-#{shiftleft_issue.cwe.first}",
+              "[ID##{shiftleft_issue.id}](#{@vendor.as(ShiftLeft).issue_url(shiftleft_issue.id)})",
               "[ID##{link[1].id[0..4]}](#{@bright.issue_url(link[1])})",
             ]
           end
@@ -190,6 +219,16 @@ module Issue::Linker
               end
             end
           end
+        when ShiftLeftIssue
+          issue.title.split(" ").each do |word|
+            SecTester::SUPPORTED_TESTS.each do |test|
+              if test.includes?(word.downcase)
+                tests << test
+              end
+            end
+          end
+        else
+          raise "Unknown vendor #{issue.class}"
         end
       end
       tests.uniq
@@ -229,6 +268,28 @@ module Issue::Linker
             @all_links[snyk_issue] = bright_issue
             already_linked_ids << bright_issue.id
             already_linked_ids << snyk_issue.id
+          end
+        end
+      end
+
+      bright_issues.each do |bright_issue|
+        next if already_linked_ids.includes?(bright_issue.id)
+        @bright_only_findings << bright_issue
+      end
+    end
+
+    private def link_shiftleft
+      shiftleft_issues = @vendor.get_issues.as(Array(ShiftLeftIssue))
+      bright_issues = @bright.get_bright_issues
+      already_linked_ids = Array(String).new
+
+      shiftleft_issues.each do |shiftleft_issue|
+        bright_issues.each do |bright_issue|
+          if shiftleft_issue.cwe.any? { |cwe| bright_issue.cwe == cwe } || (shiftleft_issue.title.includes?(bright_issue.name) || bright_issue.name.includes?(shiftleft_issue.title))
+            next if already_linked_ids.includes?(bright_issue.id) || already_linked_ids.includes?(shiftleft_issue.id)
+            @all_links[shiftleft_issue] = bright_issue
+            already_linked_ids << bright_issue.id
+            already_linked_ids << shiftleft_issue.id
           end
         end
       end
