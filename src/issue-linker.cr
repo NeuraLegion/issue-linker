@@ -12,7 +12,7 @@ require "./vendors/bright/bright.cr"
 require "./linker.cr"
 
 module Issue::Linker
-  VERSION = "0.6.0"
+  VERSION = "0.7.0"
 end
 
 alias VendorIssue = Issue::Linker::CXIssue | Issue::Linker::SnykIssue | Issue::Linker::ShiftLeftIssue
